@@ -5,7 +5,6 @@ import socketserver
 import threading
 import sys
 import time
-import signal
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
@@ -31,33 +30,19 @@ logging.basicConfig(
 )
 
 # ------------------------------------------------------------------------------
-# RENDER HEALTH CHECK SERVER (Ultra-Lightweight)
+# RENDER HEALTH CHECK SERVER
 # ------------------------------------------------------------------------------
 class HealthCheckHandler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
-        # Render needs a quick 200 OK to verify the service is up
+        # Health check endpoint for Render to prevent deployment timeout
         self.send_response(200)
         self.send_header("Content-type", "text/plain")
         self.end_headers()
         self.wfile.write(b"OK")
 
     def log_message(self, format, *args):
-        # Keep logs clean by ignoring health check hits
+        # Keep logs silent for health checks
         return
-
-def run_health_check_server():
-    # Render maps its external port to the PORT env variable
-    port = int(os.environ.get("PORT", 8080))
-    server_address = ("0.0.0.0", port)
-    
-    # TCPServer with immediate port reuse
-    socketserver.TCPServer.allow_reuse_address = True
-    try:
-        with socketserver.TCPServer(server_address, HealthCheckHandler) as httpd:
-            logging.info(f"✅ Health Check Server active on port {port}")
-            httpd.serve_forever()
-    except Exception as e:
-        logging.error(f"❌ Web Server Error: {e}")
 
 # ------------------------------------------------------------------------------
 # STATES
@@ -195,17 +180,9 @@ async def back_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return await start(update, context)
 
 # ------------------------------------------------------------------------------
-# MAIN EXECUTION
+# THREADED RUNNER FOR BOT
 # ------------------------------------------------------------------------------
-if __name__ == '__main__':
-    # 1. Start Health Check server in background
-    web_thread = threading.Thread(target=run_health_check_server, daemon=True)
-    web_thread.start()
-    
-    # Give the web server a head start to bind the port
-    time.sleep(2)
-    
-    # 2. Build and start the Telegram Bot
+def run_bot():
     try:
         app = ApplicationBuilder().token(TOKEN).build()
         
@@ -240,12 +217,26 @@ if __name__ == '__main__':
         app.add_handler(conv)
         app.add_handler(CallbackQueryHandler(back_home, pattern="^back_home$"))
         
-        logging.info("🚀 Zan-Channel Bot is starting polling...")
-        
-        # stop_signals=None is used sometimes if external supervisor is used, 
-        # but here we use default to let it handle SIGTERM correctly.
+        logging.info("🚀 Bot is starting polling in a separate thread...")
         app.run_polling(drop_pending_updates=True)
         
     except Exception as e:
-        logging.critical(f"💥 Fatal Error: {e}")
-        sys.exit(1)
+        logging.critical(f"💥 Bot Thread Error: {e}")
+
+# ------------------------------------------------------------------------------
+# MAIN EXECUTION
+# ------------------------------------------------------------------------------
+if __name__ == '__main__':
+    # 1. Run Bot in a background thread
+    bot_thread = threading.Thread(target=run_bot, daemon=True)
+    bot_thread.start()
+    
+    # 2. Use Main Thread for the Web Server (Render Health Check)
+    # This ensures the port is bound immediately and stays responsive
+    port = int(os.environ.get("PORT", 8080))
+    server_address = ("0.0.0.0", port)
+    
+    socketserver.TCPServer.allow_reuse_address = True
+    with socketserver.TCPServer(server_address, HealthCheckHandler) as httpd:
+        logging.info(f"✅ Main Thread: Health Check Server active on port {port}")
+        httpd.serve_forever()
