@@ -41,7 +41,7 @@ class HealthCheckHandler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(b"OK")
 
     def log_message(self, format, *args):
-        # Keep logs silent for health checks
+        # Keep logs silent for health checks to avoid noise
         return
 
 # ------------------------------------------------------------------------------
@@ -184,6 +184,7 @@ async def back_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ------------------------------------------------------------------------------
 def run_bot():
     try:
+        # Build application with essential timeout settings
         app = ApplicationBuilder().token(TOKEN).build()
         
         conv = ConversationHandler(
@@ -217,26 +218,33 @@ def run_bot():
         app.add_handler(conv)
         app.add_handler(CallbackQueryHandler(back_home, pattern="^back_home$"))
         
-        logging.info("🚀 Bot is starting polling in a separate thread...")
+        logging.info("🚀 Starting Telegram Bot polling...")
+        # Note: drop_pending_updates prevents overwhelming the bot on restart
         app.run_polling(drop_pending_updates=True)
         
     except Exception as e:
-        logging.critical(f"💥 Bot Thread Error: {e}")
+        logging.critical(f"💥 Bot Thread Fatal Error: {e}")
+        # Signal main process to exit if bot fails
+        os._exit(1)
 
 # ------------------------------------------------------------------------------
 # MAIN EXECUTION
 # ------------------------------------------------------------------------------
 if __name__ == '__main__':
-    # 1. Run Bot in a background thread
+    # 1. Run Bot in a separate thread
     bot_thread = threading.Thread(target=run_bot, daemon=True)
     bot_thread.start()
     
-    # 2. Use Main Thread for the Web Server (Render Health Check)
-    # This ensures the port is bound immediately and stays responsive
+    # 2. Use Main Thread for Render's required Web Server
+    # Render triggers a failure if the port isn't bound within 60-120 seconds
     port = int(os.environ.get("PORT", 8080))
     server_address = ("0.0.0.0", port)
     
-    socketserver.TCPServer.allow_reuse_address = True
-    with socketserver.TCPServer(server_address, HealthCheckHandler) as httpd:
-        logging.info(f"✅ Main Thread: Health Check Server active on port {port}")
-        httpd.serve_forever()
+    try:
+        socketserver.TCPServer.allow_reuse_address = True
+        with socketserver.TCPServer(server_address, HealthCheckHandler) as httpd:
+            logging.info(f"✅ Web Server (Health Check) listening on port {port}")
+            httpd.serve_forever()
+    except Exception as e:
+        logging.error(f"❌ Could not start Health Check Server: {e}")
+        sys.exit(1)
