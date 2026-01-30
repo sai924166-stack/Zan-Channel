@@ -30,16 +30,24 @@ logging.basicConfig(
 # ------------------------------------------------------------------------------
 # RENDER HEALTH CHECK (Render ပေါ်မှာ Bot မသေအောင် ထိန်းထားပေးဖို့ လိုအပ်သည်)
 # ------------------------------------------------------------------------------
+class HealthCheckHandler(http.server.SimpleHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"Bot is alive and running!")
+
 def run_health_check_server():
-    # Render အတွက် အရေးကြီးသော ပြင်ဆင်ချက် - 0.0.0.0 ကို သုံးရပါမည်
     port = int(os.environ.get("PORT", 8080))
-    handler = http.server.SimpleHTTPRequestHandler
+    # Render အတွက် 0.0.0.0 သုံးရန် လိုအပ်သည်
+    server_address = ("0.0.0.0", port)
     
-    # TCPServer ကို အသုံးပြု၍ ရိုးရှင်းသော HTTP Server တစ်ခု တည်ဆောက်ခြင်း
-    # 0.0.0.0 သည် ပြင်ပမှ ဆက်သွယ်မှုကို လက်ခံနိုင်ရန် ဖြစ်သည်
-    with socketserver.TCPServer(("0.0.0.0", port), handler) as httpd:
-        logging.info(f"Health check server started on port {port}")
-        httpd.serve_forever()
+    try:
+        with socketserver.TCPServer(server_address, HealthCheckHandler) as httpd:
+            logging.info(f"Health check server started on 0.0.0.0:{port}")
+            httpd.serve_forever()
+    except Exception as e:
+        logging.error(f"Health check server failed: {e}")
 
 # ------------------------------------------------------------------------------
 # STATES
