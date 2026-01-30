@@ -22,7 +22,7 @@ from telegram.ext import (
 # ------------------------------------------------------------------
 # CONFIG
 # ------------------------------------------------------------------
-BOT_TOKEN = os.getenv("BOT_TOKEN")          # Render ENV
+BOT_TOKEN = os.getenv("8515688348:AAEyFdAE81stzDwgWmjaPMDtxcgOnbOdtEc")          # Render ENV
 ADMIN_ID = 6445257462                      # YOUR TELEGRAM ID
 CHANNEL_LINK = "https://t.me/ZanchannelMM" # YOUR CHANNEL LINK
 
