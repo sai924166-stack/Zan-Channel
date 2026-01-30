@@ -19,7 +19,7 @@ from telegram.ext import (
 # ------------------------------------------------------------------------------
 TOKEN = "8515688348:AAEyFdAE81stzDwgWmjaPMDtxcgOnbOdtEc" 
 ADMIN_ID = 6445257462             # သင့် User ID
-CHANNEL_ID = "@ZanchannelMM"      # သင့် Channel Username ကို တိုက်ရိုက်သုံးထားပါသည်
+CHANNEL_ID = "@ZanchannelMM"      # သင့် Channel Username
 
 # Enable logging
 logging.basicConfig(
@@ -164,18 +164,18 @@ async def preview_grant(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     try:
-        # Create an invite link that expires after 3 minutes for the user
+        # Create an invite link that works only for 1 person
         link = await context.bot.create_chat_invite_link(chat_id=CHANNEL_ID, member_limit=1)
-        await query.edit_message_text(f"🎬 ဝင်ရောက်ကြည့်ရှုရန် Link: {link.invite_link}\n(၃ မိနစ်သာ ကြည့်ရှုခွင့်ရပါမည်။)")
+        await query.edit_message_text(f"🎬 ဝင်ရောက်ကြည့်ရှုရန် Link: {link.invite_link}\n(Link ကို နှိပ်ပြီး ၃ မိနစ်သာ ကြည့်ရှုခွင့်ရပါမည်။)")
     except Exception as e:
         logging.error(f"Invite Link Error: {e}")
-        await query.edit_message_text("Bot ကို Channel မှာ Admin အဖြစ်အရင်ခန့်ထားရပါမယ်။")
+        await query.edit_message_text("❌ စနစ်ချို့ယွင်းနေပါသည်။ Admin ကို အကြောင်းကြားထားပါသည်။")
+        await context.bot.send_message(chat_id=ADMIN_ID, text=f"⚠️ Channel ID error! Bot ကို Channel မှာ Admin ခန့်ပြီး 'Invite Users via Link' permission ပေးထားကြောင်း စစ်ဆေးပါ။\nError: {e}")
     return ConversationHandler.END
 
 async def back_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    # Go back to start state
     return await start(update, context)
 
 if __name__ == '__main__':
@@ -213,5 +213,5 @@ if __name__ == '__main__':
     app.add_handler(conv)
     app.add_handler(CallbackQueryHandler(back_home, pattern="^back_home$"))
     
-    logging.info("Bot starting...")
+    logging.info("Bot is running...")
     app.run_polling()
