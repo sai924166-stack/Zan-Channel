@@ -5,6 +5,7 @@ import socketserver
 import threading
 import sys
 import time
+import signal
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
@@ -201,13 +202,12 @@ if __name__ == '__main__':
     web_thread = threading.Thread(target=run_health_check_server, daemon=True)
     web_thread.start()
     
-    # Give the web server a head start
+    # Give the web server a head start to bind the port
     time.sleep(2)
     
     # 2. Build and start the Telegram Bot
     try:
-        # Adjusted timeouts for Render's network
-        app = ApplicationBuilder().token(TOKEN).connect_timeout(30).read_timeout(30).build()
+        app = ApplicationBuilder().token(TOKEN).build()
         
         conv = ConversationHandler(
             entry_points=[CommandHandler('start', start)],
@@ -240,10 +240,11 @@ if __name__ == '__main__':
         app.add_handler(conv)
         app.add_handler(CallbackQueryHandler(back_home, pattern="^back_home$"))
         
-        logging.info("🚀 Zan-Channel Bot is running...")
+        logging.info("🚀 Zan-Channel Bot is starting polling...")
         
-        # Use run_polling but ensure it doesn't block critical startup signals
-        app.run_polling(drop_pending_updates=True, close_loop=False)
+        # stop_signals=None is used sometimes if external supervisor is used, 
+        # but here we use default to let it handle SIGTERM correctly.
+        app.run_polling(drop_pending_updates=True)
         
     except Exception as e:
         logging.critical(f"💥 Fatal Error: {e}")
