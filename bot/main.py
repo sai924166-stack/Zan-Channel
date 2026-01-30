@@ -4,6 +4,7 @@ import http.server
 import socketserver
 import threading
 import sys
+import time
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
@@ -29,31 +30,34 @@ logging.basicConfig(
 )
 
 # ------------------------------------------------------------------------------
-# RENDER HEALTH CHECK SERVER
+# RENDER HEALTH CHECK SERVER (Robust Version)
 # ------------------------------------------------------------------------------
 class HealthCheckHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
-        # Render မှ စစ်ဆေးသည့်အခါ 200 OK ပြန်ပေးရန်
+        # Render's health check endpoint
         self.send_response(200)
         self.send_header("Content-type", "text/plain")
         self.end_headers()
-        self.wfile.write(b"Bot is alive and running!")
+        self.wfile.write(b"OK")
 
     def log_message(self, format, *args):
-        # Log တွေ အများကြီး မတက်အောင် ပိတ်ထားခြင်း
+        # Disable logging for every health check request to keep logs clean
         return
 
 def run_health_check_server():
-    # Render သည် ပုံမှန်အားဖြင့် Port 10000 သို့မဟုတ် PORT environment variable ကို သုံးသည်
+    # Render uses the PORT environment variable
     port = int(os.environ.get("PORT", 8080))
     server_address = ("0.0.0.0", port)
     
+    # Allow address reuse to avoid "Address already in use" errors during redeploys
+    socketserver.TCPServer.allow_reuse_address = True
+    
     try:
-        httpd = socketserver.TCPServer(server_address, HealthCheckHandler)
-        logging.info(f"✅ Health check server started on 0.0.0.0:{port}")
-        httpd.serve_forever()
+        with socketserver.TCPServer(server_address, HealthCheckHandler) as httpd:
+            logging.info(f"✅ Health check server is listening on port {port}")
+            httpd.serve_forever()
     except Exception as e:
-        logging.error(f"❌ Health check server failed: {e}")
+        logging.error(f"❌ Health check server error: {e}")
 
 # ------------------------------------------------------------------------------
 # STATES
@@ -201,11 +205,17 @@ async def back_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ------------------------------------------------------------------------------
 if __name__ == '__main__':
     # ၁။ Health Check Server ကို Thread တစ်ခုဖြင့် အရင်စတင်ပါ
-    threading.Thread(target=run_health_check_server, daemon=True).start()
+    # Daemon thread ဖြစ်သောကြောင့် Bot ပိတ်လျှင် သူပါပိတ်သွားမည်
+    t = threading.Thread(target=run_health_check_server, daemon=True)
+    t.start()
+    
+    # ခေတ္တစောင့်ဆိုင်းခြင်း (Server စတင်ရန် အချိန်ပေးခြင်း)
+    time.sleep(1)
     
     # ၂။ Telegram Bot ကို စတင်ပါ
     try:
-        app = ApplicationBuilder().token(TOKEN).build()
+        # Connect timeout တိုးမြှင့်ထားခြင်း
+        app = ApplicationBuilder().token(TOKEN).connect_timeout(30).read_timeout(30).build()
         
         conv = ConversationHandler(
             entry_points=[CommandHandler('start', start)],
@@ -239,7 +249,7 @@ if __name__ == '__main__':
         app.add_handler(CallbackQueryHandler(back_home, pattern="^back_home$"))
         
         logging.info("🚀 Bot is starting polling...")
-        app.run_polling()
+        app.run_polling(drop_pending_updates=True)
         
     except Exception as e:
         logging.critical(f"💥 Bot crashed: {e}")
