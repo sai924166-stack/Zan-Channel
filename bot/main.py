@@ -31,14 +31,15 @@ logging.basicConfig(
 # RENDER HEALTH CHECK (Render ပေါ်မှာ Bot မသေအောင် ထိန်းထားပေးဖို့ လိုအပ်သည်)
 # ------------------------------------------------------------------------------
 def run_health_check_server():
+    # Render အတွက် အရေးကြီးသော ပြင်ဆင်ချက် - 0.0.0.0 ကို သုံးရပါမည်
     port = int(os.environ.get("PORT", 8080))
     handler = http.server.SimpleHTTPRequestHandler
-    try:
-        with socketserver.TCPServer(("", port), handler) as httpd:
-            logging.info(f"Health check server running on port {port}")
-            httpd.serve_forever()
-    except Exception as e:
-        logging.error(f"Server error: {e}")
+    
+    # TCPServer ကို အသုံးပြု၍ ရိုးရှင်းသော HTTP Server တစ်ခု တည်ဆောက်ခြင်း
+    # 0.0.0.0 သည် ပြင်ပမှ ဆက်သွယ်မှုကို လက်ခံနိုင်ရန် ဖြစ်သည်
+    with socketserver.TCPServer(("0.0.0.0", port), handler) as httpd:
+        logging.info(f"Health check server started on port {port}")
+        httpd.serve_forever()
 
 # ------------------------------------------------------------------------------
 # STATES
@@ -182,10 +183,10 @@ async def back_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return await start(update, context)
 
 if __name__ == '__main__':
-    # Start Health Check for Render
+    # Start Health Check Server in a separate thread
     threading.Thread(target=run_health_check_server, daemon=True).start()
     
-    # Start Bot
+    # Start Telegram Bot
     app = ApplicationBuilder().token(TOKEN).build()
     
     conv = ConversationHandler(
@@ -221,4 +222,3 @@ if __name__ == '__main__':
     
     logging.info("Bot is starting polling...")
     app.run_polling()
-    
