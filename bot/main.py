@@ -28,14 +28,17 @@ logging.basicConfig(
 )
 
 # ------------------------------------------------------------------------------
-# RENDER HEALTH CHECK
+# RENDER HEALTH CHECK (Render ပေါ်မှာ Bot မသေအောင် ထိန်းထားပေးဖို့ လိုအပ်သည်)
 # ------------------------------------------------------------------------------
 def run_health_check_server():
     port = int(os.environ.get("PORT", 8080))
     handler = http.server.SimpleHTTPRequestHandler
-    with socketserver.TCPServer(("", port), handler) as httpd:
-        logging.info(f"Health check server running on port {port}")
-        httpd.serve_forever()
+    try:
+        with socketserver.TCPServer(("", port), handler) as httpd:
+            logging.info(f"Health check server running on port {port}")
+            httpd.serve_forever()
+    except Exception as e:
+        logging.error(f"Server error: {e}")
 
 # ------------------------------------------------------------------------------
 # STATES
@@ -179,7 +182,10 @@ async def back_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return await start(update, context)
 
 if __name__ == '__main__':
+    # Start Health Check for Render
     threading.Thread(target=run_health_check_server, daemon=True).start()
+    
+    # Start Bot
     app = ApplicationBuilder().token(TOKEN).build()
     
     conv = ConversationHandler(
@@ -213,5 +219,6 @@ if __name__ == '__main__':
     app.add_handler(conv)
     app.add_handler(CallbackQueryHandler(back_home, pattern="^back_home$"))
     
-    logging.info("Bot is running...")
+    logging.info("Bot is starting polling...")
     app.run_polling()
+    
