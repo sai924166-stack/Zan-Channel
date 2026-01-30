@@ -34,7 +34,7 @@ logging.basicConfig(
 # ------------------------------------------------------------------------------
 class HealthCheckHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
-        # Render's health check endpoint
+        # Render's health check endpoint - return 200 OK immediately
         self.send_response(200)
         self.send_header("Content-type", "text/plain")
         self.end_headers()
@@ -55,6 +55,7 @@ def run_health_check_server():
     try:
         with socketserver.TCPServer(server_address, HealthCheckHandler) as httpd:
             logging.info(f"✅ Health check server is listening on port {port}")
+            # Use a timeout to allow the thread to be responsive if needed
             httpd.serve_forever()
     except Exception as e:
         logging.error(f"❌ Health check server error: {e}")
@@ -205,17 +206,16 @@ async def back_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ------------------------------------------------------------------------------
 if __name__ == '__main__':
     # ၁။ Health Check Server ကို Thread တစ်ခုဖြင့် အရင်စတင်ပါ
-    # Daemon thread ဖြစ်သောကြောင့် Bot ပိတ်လျှင် သူပါပိတ်သွားမည်
     t = threading.Thread(target=run_health_check_server, daemon=True)
     t.start()
     
-    # ခေတ္တစောင့်ဆိုင်းခြင်း (Server စတင်ရန် အချိန်ပေးခြင်း)
-    time.sleep(1)
+    # ခေတ္တစောင့်ဆိုင်းခြင်း (Web Server တက်လာရန် အချိန်ပေးခြင်း)
+    time.sleep(2)
     
     # ၂။ Telegram Bot ကို စတင်ပါ
     try:
-        # Connect timeout တိုးမြှင့်ထားခြင်း
-        app = ApplicationBuilder().token(TOKEN).connect_timeout(30).read_timeout(30).build()
+        # Render Environment အတွက် timeout များကို ပိုတိုးထားသည်
+        app = ApplicationBuilder().token(TOKEN).connect_timeout(60).read_timeout(60).build()
         
         conv = ConversationHandler(
             entry_points=[CommandHandler('start', start)],
@@ -249,6 +249,7 @@ if __name__ == '__main__':
         app.add_handler(CallbackQueryHandler(back_home, pattern="^back_home$"))
         
         logging.info("🚀 Bot is starting polling...")
+        # drop_pending_updates သည် Bot ပိတ်ထားစဉ်ဝင်လာသော message ဟောင်းများကို လျစ်လျူရှုရန်ဖြစ်သည်
         app.run_polling(drop_pending_updates=True)
         
     except Exception as e:
