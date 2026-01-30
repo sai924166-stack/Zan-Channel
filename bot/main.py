@@ -21,7 +21,7 @@ from telegram.ext import (
 # ======================================================
 # CONFIG (TOKEN ကို တစ်ခါတည်း ထည့်ထား)
 # ======================================================
-BOT_TOKEN = "8515688348:AAEyFdAE81stzDwgWmjaPMDtxcgOnbOdtEc"
+BOT_TOKEN = "8515688348:AAE0a7XcOIfRF9DJfrbdLNFsnJxPJFem18o"
 ADMIN_ID = 6445257462
 CHANNEL_LINK = "https://t.me/ZanchannelMM"
 
