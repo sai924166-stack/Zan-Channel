@@ -30,35 +30,33 @@ logging.basicConfig(
 )
 
 # ------------------------------------------------------------------------------
-# RENDER HEALTH CHECK SERVER (Robust Version)
+# RENDER HEALTH CHECK SERVER (Ultra-Lightweight)
 # ------------------------------------------------------------------------------
-class HealthCheckHandler(http.server.SimpleHTTPRequestHandler):
+class HealthCheckHandler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
-        # Render's health check endpoint - return 200 OK immediately
+        # Render needs a quick 200 OK to verify the service is up
         self.send_response(200)
         self.send_header("Content-type", "text/plain")
         self.end_headers()
         self.wfile.write(b"OK")
 
     def log_message(self, format, *args):
-        # Disable logging for every health check request to keep logs clean
+        # Keep logs clean by ignoring health check hits
         return
 
 def run_health_check_server():
-    # Render uses the PORT environment variable
+    # Render maps its external port to the PORT env variable
     port = int(os.environ.get("PORT", 8080))
     server_address = ("0.0.0.0", port)
     
-    # Allow address reuse to avoid "Address already in use" errors during redeploys
+    # TCPServer with immediate port reuse
     socketserver.TCPServer.allow_reuse_address = True
-    
     try:
         with socketserver.TCPServer(server_address, HealthCheckHandler) as httpd:
-            logging.info(f"✅ Health check server is listening on port {port}")
-            # Use a timeout to allow the thread to be responsive if needed
+            logging.info(f"✅ Health Check Server active on port {port}")
             httpd.serve_forever()
     except Exception as e:
-        logging.error(f"❌ Health check server error: {e}")
+        logging.error(f"❌ Web Server Error: {e}")
 
 # ------------------------------------------------------------------------------
 # STATES
@@ -112,7 +110,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE, chat_id=None
         await context.bot.send_message(chat_id=target_id, text=text, reply_markup=reply_markup)
     return SELECTING_ACTION
 
-# --- VIP Flow ---
 async def vip_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -132,7 +129,6 @@ async def vip_payment_details(update: Update, context: ContextTypes.DEFAULT_TYPE
     await query.edit_message_text(text)
     return VIP_UPLOAD_SLIP
 
-# --- Single Movie Flow ---
 async def single_movie_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -162,7 +158,6 @@ async def movie_payment_details(update: Update, context: ContextTypes.DEFAULT_TY
     await query.edit_message_text(text)
     return MOVIE_UPLOAD_SLIP
 
-# --- Slip Handling ---
 async def handle_slip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
     photo = update.message.photo[-1].file_id
@@ -174,7 +169,6 @@ async def handle_slip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("✅ ပြေစာလက်ခံရရှိပါသည်။ Admin မှ စစ်ဆေးပြီးနောက် ဝယ်ယူထားသော ကားကို ပို့ပေးပါမည်။")
     return ConversationHandler.END
 
-# --- Preview Flow ---
 async def preview_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -187,13 +181,11 @@ async def preview_grant(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     try:
-        # Create an invite link that works only for 1 person
         link = await context.bot.create_chat_invite_link(chat_id=CHANNEL_ID, member_limit=1)
         await query.edit_message_text(f"🎬 ဝင်ရောက်ကြည့်ရှုရန် Link: {link.invite_link}\n(Link ကို နှိပ်ပြီး ၃ မိနစ်သာ ကြည့်ရှုခွင့်ရပါမည်။)")
     except Exception as e:
         logging.error(f"Invite Link Error: {e}")
         await query.edit_message_text("❌ စနစ်ချို့ယွင်းနေပါသည်။ Admin ကို အကြောင်းကြားထားပါသည်။")
-        await context.bot.send_message(chat_id=ADMIN_ID, text=f"⚠️ Channel ID error! Bot ကို Channel မှာ Admin ခန့်ပြီး 'Invite Users via Link' permission ပေးထားကြောင်း စစ်ဆေးပါ။\nError: {e}")
     return ConversationHandler.END
 
 async def back_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -205,17 +197,17 @@ async def back_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # MAIN EXECUTION
 # ------------------------------------------------------------------------------
 if __name__ == '__main__':
-    # ၁။ Health Check Server ကို Thread တစ်ခုဖြင့် အရင်စတင်ပါ
-    t = threading.Thread(target=run_health_check_server, daemon=True)
-    t.start()
+    # 1. Start Health Check server in background
+    web_thread = threading.Thread(target=run_health_check_server, daemon=True)
+    web_thread.start()
     
-    # ခေတ္တစောင့်ဆိုင်းခြင်း (Web Server တက်လာရန် အချိန်ပေးခြင်း)
+    # Give the web server a head start
     time.sleep(2)
     
-    # ၂။ Telegram Bot ကို စတင်ပါ
+    # 2. Build and start the Telegram Bot
     try:
-        # Render Environment အတွက် timeout များကို ပိုတိုးထားသည်
-        app = ApplicationBuilder().token(TOKEN).connect_timeout(60).read_timeout(60).build()
+        # Adjusted timeouts for Render's network
+        app = ApplicationBuilder().token(TOKEN).connect_timeout(30).read_timeout(30).build()
         
         conv = ConversationHandler(
             entry_points=[CommandHandler('start', start)],
@@ -248,10 +240,11 @@ if __name__ == '__main__':
         app.add_handler(conv)
         app.add_handler(CallbackQueryHandler(back_home, pattern="^back_home$"))
         
-        logging.info("🚀 Bot is starting polling...")
-        # drop_pending_updates သည် Bot ပိတ်ထားစဉ်ဝင်လာသော message ဟောင်းများကို လျစ်လျူရှုရန်ဖြစ်သည်
-        app.run_polling(drop_pending_updates=True)
+        logging.info("🚀 Zan-Channel Bot is running...")
+        
+        # Use run_polling but ensure it doesn't block critical startup signals
+        app.run_polling(drop_pending_updates=True, close_loop=False)
         
     except Exception as e:
-        logging.critical(f"💥 Bot crashed: {e}")
+        logging.critical(f"💥 Fatal Error: {e}")
         sys.exit(1)
