@@ -3,6 +3,7 @@ import os
 import http.server
 import socketserver
 import threading
+import sys
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
@@ -28,26 +29,31 @@ logging.basicConfig(
 )
 
 # ------------------------------------------------------------------------------
-# RENDER HEALTH CHECK (Render ပေါ်မှာ Bot မသေအောင် ထိန်းထားပေးဖို့ လိုအပ်သည်)
+# RENDER HEALTH CHECK SERVER
 # ------------------------------------------------------------------------------
 class HealthCheckHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
+        # Render မှ စစ်ဆေးသည့်အခါ 200 OK ပြန်ပေးရန်
         self.send_response(200)
         self.send_header("Content-type", "text/plain")
         self.end_headers()
         self.wfile.write(b"Bot is alive and running!")
 
+    def log_message(self, format, *args):
+        # Log တွေ အများကြီး မတက်အောင် ပိတ်ထားခြင်း
+        return
+
 def run_health_check_server():
+    # Render သည် ပုံမှန်အားဖြင့် Port 10000 သို့မဟုတ် PORT environment variable ကို သုံးသည်
     port = int(os.environ.get("PORT", 8080))
-    # Render အတွက် 0.0.0.0 သုံးရန် လိုအပ်သည်
     server_address = ("0.0.0.0", port)
     
     try:
-        with socketserver.TCPServer(server_address, HealthCheckHandler) as httpd:
-            logging.info(f"Health check server started on 0.0.0.0:{port}")
-            httpd.serve_forever()
+        httpd = socketserver.TCPServer(server_address, HealthCheckHandler)
+        logging.info(f"✅ Health check server started on 0.0.0.0:{port}")
+        httpd.serve_forever()
     except Exception as e:
-        logging.error(f"Health check server failed: {e}")
+        logging.error(f"❌ Health check server failed: {e}")
 
 # ------------------------------------------------------------------------------
 # STATES
@@ -190,43 +196,51 @@ async def back_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     return await start(update, context)
 
+# ------------------------------------------------------------------------------
+# MAIN EXECUTION
+# ------------------------------------------------------------------------------
 if __name__ == '__main__':
-    # Start Health Check Server in a separate thread
+    # ၁။ Health Check Server ကို Thread တစ်ခုဖြင့် အရင်စတင်ပါ
     threading.Thread(target=run_health_check_server, daemon=True).start()
     
-    # Start Telegram Bot
-    app = ApplicationBuilder().token(TOKEN).build()
-    
-    conv = ConversationHandler(
-        entry_points=[CommandHandler('start', start)],
-        states={
-            SELECTING_ACTION: [
-                CallbackQueryHandler(vip_start, pattern="^flow_vip$"),
-                CallbackQueryHandler(preview_start, pattern="^flow_preview$"),
-                CallbackQueryHandler(single_movie_start, pattern="^flow_single$"),
-                CallbackQueryHandler(back_home, pattern="^flow_other$"),
-            ],
-            VIP_PAYMENT_SELECT: [
-                CallbackQueryHandler(vip_payment_details, pattern="^vip_pay_"),
-                CallbackQueryHandler(back_home, pattern="^back_home$")
-            ],
-            VIP_UPLOAD_SLIP: [MessageHandler(filters.PHOTO, handle_slip)],
-            MOVIE_BROWSE: [
-                CallbackQueryHandler(movie_pay_select, pattern="^buy_mov_"),
-                CallbackQueryHandler(back_home, pattern="^back_home$")
-            ],
-            MOVIE_PAYMENT_SELECT: [CallbackQueryHandler(movie_payment_details, pattern="^mov_pay_")],
-            MOVIE_UPLOAD_SLIP: [MessageHandler(filters.PHOTO, handle_slip)],
-            PREVIEW_BROWSE: [
-                CallbackQueryHandler(preview_grant, pattern="^prev_"),
-                CallbackQueryHandler(back_home, pattern="^back_home$")
-            ]
-        },
-        fallbacks=[CommandHandler('start', start)]
-    )
-    
-    app.add_handler(conv)
-    app.add_handler(CallbackQueryHandler(back_home, pattern="^back_home$"))
-    
-    logging.info("Bot is starting polling...")
-    app.run_polling()
+    # ၂။ Telegram Bot ကို စတင်ပါ
+    try:
+        app = ApplicationBuilder().token(TOKEN).build()
+        
+        conv = ConversationHandler(
+            entry_points=[CommandHandler('start', start)],
+            states={
+                SELECTING_ACTION: [
+                    CallbackQueryHandler(vip_start, pattern="^flow_vip$"),
+                    CallbackQueryHandler(preview_start, pattern="^flow_preview$"),
+                    CallbackQueryHandler(single_movie_start, pattern="^flow_single$"),
+                    CallbackQueryHandler(back_home, pattern="^flow_other$"),
+                ],
+                VIP_PAYMENT_SELECT: [
+                    CallbackQueryHandler(vip_payment_details, pattern="^vip_pay_"),
+                    CallbackQueryHandler(back_home, pattern="^back_home$")
+                ],
+                VIP_UPLOAD_SLIP: [MessageHandler(filters.PHOTO, handle_slip)],
+                MOVIE_BROWSE: [
+                    CallbackQueryHandler(movie_pay_select, pattern="^buy_mov_"),
+                    CallbackQueryHandler(back_home, pattern="^back_home$")
+                ],
+                MOVIE_PAYMENT_SELECT: [CallbackQueryHandler(movie_payment_details, pattern="^mov_pay_")],
+                MOVIE_UPLOAD_SLIP: [MessageHandler(filters.PHOTO, handle_slip)],
+                PREVIEW_BROWSE: [
+                    CallbackQueryHandler(preview_grant, pattern="^prev_"),
+                    CallbackQueryHandler(back_home, pattern="^back_home$")
+                ]
+            },
+            fallbacks=[CommandHandler('start', start)]
+        )
+        
+        app.add_handler(conv)
+        app.add_handler(CallbackQueryHandler(back_home, pattern="^back_home$"))
+        
+        logging.info("🚀 Bot is starting polling...")
+        app.run_polling()
+        
+    except Exception as e:
+        logging.critical(f"💥 Bot crashed: {e}")
+        sys.exit(1)
