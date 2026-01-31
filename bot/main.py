@@ -6,7 +6,7 @@ import threading
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
-    Updater,
+    ApplicationBuilder,
     CommandHandler,
     CallbackQueryHandler,
     MessageHandler,
@@ -170,8 +170,7 @@ def run_health_server():
 # MAIN
 # ======================================================
 def main():
-    updater = Updater(token=BOT_TOKEN, use_context=True)
-    dispatcher = updater.dispatcher
+    application = ApplicationBuilder().token(BOT_TOKEN).build()
 
     conv = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
@@ -190,14 +189,13 @@ def main():
         fallbacks=[CommandHandler("start", start)],
     )
 
-    dispatcher.add_handler(conv)
+    application.add_handler(conv)
 
     # Run health server in a separate thread
     threading.Thread(target=run_health_server, daemon=True).start()
 
     # Start the bot
-    updater.start_polling()
-    updater.idle()
+    application.run_polling()
 
 if __name__ == "__main__":
     main()
