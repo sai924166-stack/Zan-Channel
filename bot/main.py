@@ -1,3 +1,4 @@
+import os
 import asyncio
 import logging
 import http.server
@@ -13,6 +14,7 @@ from telegram.ext import (
     ContextTypes,
     filters,
 )
+
 # =========================
 # CONFIG
 # =========================
@@ -76,7 +78,7 @@ async def vip_pay(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await q.answer()
     method = q.data.replace("vip_", "")
     await q.edit_message_text(
-        PAY_INFO[method] + "\n\n📸 ပြေစာကို ပို့ပါ"
+        PAY_INFO[method] + "\n\n📸 ပြေစာ ပို့ပါ"
     )
     return VIP_SLIP
 
