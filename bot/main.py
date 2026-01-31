@@ -3,6 +3,7 @@ import asyncio
 import logging
 import http.server
 import socketserver
+import threading
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -162,10 +163,15 @@ class Health(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b"OK")
 
+def run_health_server():
+    port = int(os.environ.get("PORT", 10000))
+    with socketserver.TCPServer(("0.0.0.0", port), Health) as httpd:
+        httpd.serve_forever()
+
 # ======================================================
 # MAIN
 # ======================================================
-def main():
+async def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     conv = ConversationHandler(
@@ -187,12 +193,11 @@ def main():
 
     app.add_handler(conv)
 
-    loop = asyncio.get_event_loop()
-    loop.create_task(app.run_polling())
+    # Run health server in a separate thread
+    threading.Thread(target=run_health_server, daemon=True).start()
 
-    port = int(os.environ.get("PORT", 10000))
-    with socketserver.TCPServer(("0.0.0.0", port), Health) as httpd:
-        httpd.serve_forever()
+    # Run the bot
+    await app.run_polling()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
