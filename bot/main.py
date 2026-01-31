@@ -4,8 +4,8 @@ import logging
 import http.server
 import socketserver
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import (
+app = ApplicationBuilder().token(BOT_TOKEN).build()
+app.run_polling()
     ApplicationBuilder,
     CommandHandler,
     CallbackQueryHandler,
