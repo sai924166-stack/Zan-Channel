@@ -1,5 +1,4 @@
 import os
-import asyncio
 import logging
 import http.server
 import socketserver
@@ -7,12 +6,11 @@ import threading
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
-    ApplicationBuilder,
+    Updater,
     CommandHandler,
     CallbackQueryHandler,
     MessageHandler,
     ConversationHandler,
-    ContextTypes,
     filters,
 )
 
@@ -49,13 +47,13 @@ MOVIES = {
 # ======================================================
 # START / MAIN MENU
 # ======================================================
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def start(update: Update, context):
     keyboard = [
         [InlineKeyboardButton("👑 VIP Member ဝင်ရန်", callback_data="vip")],
         [InlineKeyboardButton("🎬 နမူနာကြည့်ရန်", callback_data="preview")],
         [InlineKeyboardButton("🎞️ တစ်ကားချင်းဝယ်ရန်", callback_data="buy")],
     ]
-    await update.message.reply_text(
+    update.message.reply_text(
         "🎥 Zan Channel Bot မှ ကြိုဆိုပါတယ်\nအောက်ကခလုတ်ကို ရွေးပါ",
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
@@ -64,92 +62,92 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ======================================================
 # VIP FLOW
 # ======================================================
-async def vip_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    await q.answer()
+def vip_menu(update: Update, context):
+    query = update.callback_query
+    query.answer()
     keyboard = [[InlineKeyboardButton(m, callback_data=f"vip_{m}")] for m in PAY_METHODS]
-    await q.edit_message_text(
+    query.edit_message_text(
         "👑 VIP Payment Method ရွေးပါ",
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
     return VIP_PAY
 
-async def vip_pay(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    await q.answer()
-    method = q.data.replace("vip_", "")
-    await q.edit_message_text(
+def vip_pay(update: Update, context):
+    query = update.callback_query
+    query.answer()
+    method = query.data.replace("vip_", "")
+    query.edit_message_text(
         PAY_INFO[method] + "\n\n📸 ပြေစာ ပို့ပါ"
     )
     return VIP_SLIP
 
-async def vip_slip(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def vip_slip(update: Update, context):
     photo = update.message.photo[-1].file_id
     user = update.message.from_user
-    await context.bot.send_photo(
+    context.bot.send_photo(
         ADMIN_ID,
         photo,
         caption=f"VIP SLIP\nUser: {user.full_name}\nID: {user.id}",
     )
-    await update.message.reply_text("✅ ပြေစာ လက်ခံပြီးပါပြီ")
+    update.message.reply_text("✅ ပြေစာ လက်ခံပြီးပါပြီ")
     return ConversationHandler.END
 
 # ======================================================
 # BUY MOVIE FLOW
 # ======================================================
-async def buy_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    await q.answer()
+def buy_menu(update: Update, context):
+    query = update.callback_query
+    query.answer()
     keyboard = [
         [InlineKeyboardButton(f"{v[0]} - {v[1]}", callback_data=k)]
         for k, v in MOVIES.items()
     ]
-    await q.edit_message_text(
+    query.edit_message_text(
         "🎞️ ဇာတ်ကား ရွေးပါ",
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
     return BUY_MOVIE
 
-async def buy_select(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    await q.answer()
-    movie = MOVIES[q.data]
+def buy_select(update: Update, context):
+    query = update.callback_query
+    query.answer()
+    movie = MOVIES[query.data]
     context.user_data["movie"] = movie
     keyboard = [[InlineKeyboardButton(m, callback_data=f"buy_{m}")] for m in PAY_METHODS]
-    await q.edit_message_text(
+    query.edit_message_text(
         f"{movie[0]} ({movie[1]})\nPayment Method ရွေးပါ",
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
     return BUY_PAY
 
-async def buy_pay(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    await q.answer()
-    method = q.data.replace("buy_", "")
+def buy_pay(update: Update, context):
+    query = update.callback_query
+    query.answer()
+    method = query.data.replace("buy_", "")
     movie = context.user_data["movie"]
-    await q.edit_message_text(
+    query.edit_message_text(
         f"{movie[0]} ({movie[1]})\n\n{PAY_INFO[method]}\n\n📸 ပြေစာ ပို့ပါ"
     )
     return BUY_SLIP
 
-async def buy_slip(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def buy_slip(update: Update, context):
     photo = update.message.photo[-1].file_id
     user = update.message.from_user
-    await context.bot.send_photo(
+    context.bot.send_photo(
         ADMIN_ID,
         photo,
         caption=f"MOVIE BUY\nUser: {user.full_name}\nID: {user.id}",
     )
-    await update.message.reply_text("✅ ပြေစာ လက်ခံပြီးပါပြီ")
+    update.message.reply_text("✅ ပြေစာ လက်ခံပြီးပါပြီ")
     return ConversationHandler.END
 
 # ======================================================
 # PREVIEW
 # ======================================================
-async def preview(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    await q.answer()
-    await q.edit_message_text(
+def preview(update: Update, context):
+    query = update.callback_query
+    query.answer()
+    query.edit_message_text(
         f"🎬 Preview (3 မိနစ်)\n{CHANNEL_LINK}\n\nပြီးရင် ဝယ်ယူရပါမည်"
     )
     return ConversationHandler.END
@@ -171,8 +169,9 @@ def run_health_server():
 # ======================================================
 # MAIN
 # ======================================================
-async def main():
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
+def main():
+    updater = Updater(token=BOT_TOKEN, use_context=True)
+    dispatcher = updater.dispatcher
 
     conv = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
@@ -191,13 +190,14 @@ async def main():
         fallbacks=[CommandHandler("start", start)],
     )
 
-    app.add_handler(conv)
+    dispatcher.add_handler(conv)
 
     # Run health server in a separate thread
     threading.Thread(target=run_health_server, daemon=True).start()
 
-    # Run the bot
-    await app.run_polling()
+    # Start the bot
+    updater.start_polling()
+    updater.idle()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
