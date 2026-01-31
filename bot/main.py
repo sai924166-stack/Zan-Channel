@@ -1,11 +1,10 @@
-import os
 import asyncio
 import logging
 import http.server
 import socketserver
 
-app = ApplicationBuilder().token(BOT_TOKEN).build()
-app.run_polling()
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     CallbackQueryHandler,
@@ -14,15 +13,6 @@ app.run_polling()
     ContextTypes,
     filters,
 )
-
-# ======================================================
-# CONFIG (TOKEN ကို တန်းထည့်ထား – ENV မလို)
-# ======================================================
-BOT_TOKEN = "8515688348:AAE0a7XcOIfRF9DJfrbdLNFsnJxPJFem18o"
-ADMIN_ID = 6445257462
-CHANNEL_LINK = "https://t.me/ZanchannelMM"
-
-logging.basicConfig(level=logging.INFO)
 
 # ======================================================
 # STATES
