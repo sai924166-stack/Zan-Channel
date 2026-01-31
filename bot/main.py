@@ -13,6 +13,12 @@ from telegram.ext import (
     ContextTypes,
     filters,
 )
+# =========================
+# CONFIG
+# =========================
+BOT_TOKEN = "8515688348:AAE0a7XcOIfRF9DJfrbdLNFsnJxPJFem18o"
+ADMIN_ID = 6445257462
+CHANNEL_LINK = "https://t.me/ZanchannelMM"
 
 # ======================================================
 # STATES
