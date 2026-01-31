@@ -17,9 +17,14 @@ from telegram.ext import (
 # =========================
 # CONFIG
 # =========================
-BOT_TOKEN = "8515688348:AAE0a7XcOIfRF9DJfrbdLNFsnJxPJFem18o"
-ADMIN_ID = 6445257462
-CHANNEL_LINK = "https://t.me/ZanchannelMM"
+BOT_TOKEN = "YOUR_BOT_TOKEN"
+
+# Run the application
+def main():
+    application = ApplicationBuilder().token(BOT_TOKEN).build()  # Corrected line here
+
+    # ... (rest of your main code unchanged)
+
 
 # ======================================================
 # STATES
